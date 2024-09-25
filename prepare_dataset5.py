@@ -1,14 +1,11 @@
-# file_1.py
-import subprocess
-
-print("Running prepare_dataset5.py")
-# Call the next file
-subprocess.run(["python", "collator6.py"])
-
+from transformers import SpeechT5HifiGan
+import matplotlib.pyplot as plt
+from IPython.display import Audio
+import torch
+from speaker_emm4 import create_speaker_embedding
 
 
-
-def prepare_dataset(example):
+def prepare_dataset(example,processor):
     # load the audio data; if necessary, this resamples the audio to 16kHz
     audio = example["audio"]
 
@@ -29,32 +26,37 @@ def prepare_dataset(example):
     return example
 
 
-processed_example = prepare_dataset(dataset[0])
+def preapare(processor,dataset,tokenizer):
 
-list(processed_example.keys())
+    main_processor = processor
+    processed_example = prepare_dataset(dataset[0],processor)
 
-tokenizer.decode(processed_example["input_ids"])
+    list(processed_example.keys())
 
-processed_example["speaker_embeddings"].shape
+    tokenizer.decode(processed_example["input_ids"])
 
-import matplotlib.pyplot as plt
-plt.figure()
-plt.imshow(processed_example["labels"].T)
-plt.show()
+    processed_example["speaker_embeddings"].shape
 
-from transformers import SpeechT5HifiGan
-vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+    plt.figure()
+    plt.imshow(processed_example["labels"].T)
+    plt.show()
+    vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
 
-spectrogram = torch.tensor(processed_example["labels"])
-with torch.no_grad():
-    speech = vocoder(spectrogram)
+    spectrogram = torch.tensor(processed_example["labels"])
+    with torch.no_grad():
+        speech = vocoder(spectrogram)
 
-from IPython.display import Audio
-Audio(speech.cpu().numpy(), rate=16000)
+    Audio(speech.cpu().numpy(), rate=16000)
 
-dataset = dataset.map(
-    prepare_dataset, remove_columns=dataset.column_names,
-)
-# dataset split train/test---------------
-dataset = dataset.train_test_split(test_size=0.1)
-dataset
+    dataset = dataset.map(
+        lambda example: prepare_dataset(example, processor),
+        remove_columns=dataset.column_names,
+    )
+    # dataset split train/test---------------
+    dataset = dataset.train_test_split(test_size=0.1)
+    print(dataset)
+    dataset.save_to_disk("voice_project/dataset")
+    return dataset,processor
+
+
+

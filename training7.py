@@ -1,74 +1,40 @@
-# file_1.py
-import subprocess
+from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments
 
-print("Running training7.py")
-# Call the next file
-subprocess.run(["python", "evaluate8.py"])
+def resume_training_from_checkpoint(model, processor, data_collator, dataset):
+    checkpoint_path = "Final_model/checkpoint-392000"
+    # Define the training arguments
+    training_args = Seq2SeqTrainingArguments(
+        output_dir="Final_model",  # Directory to save model checkpoints
+        per_device_train_batch_size=16,  # Adjust as needed
+        gradient_accumulation_steps=2,
+        learning_rate=3e-5,
+        warmup_steps=1000,
+        max_steps=1340000,  # Total number of steps for training
+        gradient_checkpointing=True,
+        fp16=True,  # Mixed-precision training
+        evaluation_strategy="steps",  # Evaluate every few steps
+        per_device_eval_batch_size=8,  # Batch size for evaluation
+        save_steps=8000,  # Save checkpoint every 8000 steps
+        eval_steps=1000,  # Evaluate every 1000 steps
+        logging_steps=1000,  # Log every 1000 steps
+        report_to=["tensorboard"],
+        load_best_model_at_end=True,  # Load best model at the end
+        greater_is_better=False,
+        label_names=["labels"],
+    )
+
+    # Initialize the Seq2SeqTrainer
+    trainer = Seq2SeqTrainer(
+        model=model,  # The model being trained
+        args=training_args,  # Training arguments
+        train_dataset=dataset["train"],  # Training dataset
+        eval_dataset=dataset["test"],  # Evaluation dataset
+        data_collator=data_collator,  # Data collator for dynamic batching
+        tokenizer=processor.tokenizer,  # Processor's tokenizer
+    )
+
+    # Resume training from the checkpoint
+    trainer.train(resume_from_checkpoint=checkpoint_path)
 
 
-
-
-
-# from huggingface_hub import notebook_login
-
-# notebook_login()
-model.config.use_cache = False
-# from transformers import Seq2SeqTrainingArguments
-
-# training_args = Seq2SeqTrainingArguments(
-#     output_dir="/content/drive/MyDrive/speecht5/model",  # change to a repo name of your choice
-#     per_device_train_batch_size=16,
-#     gradient_accumulation_steps=2,
-#     learning_rate=1e-5,
-#     warmup_steps=500,
-#     max_steps=10000,
-#     gradient_checkpointing=True,
-#     fp16=True,
-#     evaluation_strategy="steps",
-#     per_device_eval_batch_size=8,
-#     save_steps=1000,
-#     eval_steps=1000,
-#     logging_steps=25,
-#     report_to=["tensorboard"],
-#     load_best_model_at_end=True,
-#     greater_is_better=False,
-#     label_names=["labels"],
-#     push_to_hub=False,
-# )
-
-from transformers import Seq2SeqTrainingArguments
-
-training_args = Seq2SeqTrainingArguments(
-    output_dir="/content/drive/MyDrive/speecht5/model",  # change to a repo name of your choice
-    per_device_train_batch_size=16,  # Can be adjusted based on your GPU capacity
-    gradient_accumulation_steps=2,  # For handling larger batches virtually
-    learning_rate=2e-5,  # Slightly higher learning rate for speech models
-    warmup_steps=1000,  # Adjust based on dataset size, start with 1000
-    max_steps=20000,  # Increase for larger datasets like Common Voice (20000-30000 steps)
-    gradient_checkpointing=True,
-    fp16=True,  # Mixed precision for faster training
-    evaluation_strategy="steps",
-    per_device_eval_batch_size=8,
-    save_steps=1000,  # Save model every 1000 steps
-    eval_steps=1000,  # Evaluate the model every 1000 steps
-    logging_steps=50,  # Log progress more frequently
-    report_to=["tensorboard"],  # Can add WandB or other reporting options
-    load_best_model_at_end=True,
-    greater_is_better=False,  # Can switch based on your evaluation metric
-    label_names=["labels"],  # The target transcription column
-    push_to_hub=False,  # Optional if you're pushing to Hugging Face Hub
-)
-
-from transformers import Seq2SeqTrainer
-
-trainer = Seq2SeqTrainer(
-    args=training_args,
-    model=model,
-    train_dataset=dataset["train"],
-    eval_dataset=dataset["test"],
-    data_collator=data_collator,
-    tokenizer=processor.tokenizer,
-)
-
-trainer.train()
 
